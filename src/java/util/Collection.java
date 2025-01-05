@@ -715,7 +715,7 @@ public interface Collection<E> extends Iterable<E> {
      * @return the number of elements in this collection
      */
     // 返回当前容器的元素数量
-    int size();
+    int s();
     
     /**
      * Returns {@code true} if this collection contains no elements.

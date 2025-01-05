@@ -418,7 +418,7 @@ public interface List<E> extends Collection<E> {
         Objects.requireNonNull(operator);
         final ListIterator<E> li = this.listIterator();
         while (li.hasNext()) {
-            li.set(operator.apply(li.next()));
+            li.set(operator.apply(li.next())); // 利用迭代器获取并更新元素
         }
     }
     
@@ -787,10 +787,11 @@ public interface List<E> extends Collection<E> {
      * @since 1.8
      */
     // 使用指定的比较器对当前线性表内的元素进行排序
+    // 排序，然后利用list迭代器将元素放回到原链表上
     @SuppressWarnings({"unchecked", "rawtypes"})
     default void sort(Comparator<? super E> c) {
         Object[] a = this.toArray();
-        Arrays.sort(a, (Comparator) c);
+        Arrays.sort(a, (Comparator) c); 
         ListIterator<E> i = this.listIterator();
         for (Object e : a) {
             i.next();

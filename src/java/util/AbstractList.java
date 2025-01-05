@@ -70,6 +70,14 @@ import java.util.function.Consumer;
  * @since 1.2
  */
 // 线性表的抽象实现
+/**
+ * 线性表的抽象实现(随机访问)，顺序访问（如链表）应该优先使用AbstractSequentialList
+ * 不可变，拓展本类，并重写get(i)和size()方法
+ * 可变，额外覆盖set(i,e), 变长，还需要额外覆盖add(i, o), remove(i) 方法
+ * 
+ * 提供无参构造方法，无需实现iterator(本类已经提供实现)
+ * 
+ */
 public abstract class AbstractList<E> extends AbstractCollection<E> implements List<E> {
     
     /**
@@ -147,6 +155,7 @@ public abstract class AbstractList<E> extends AbstractCollection<E> implements L
      * {@link #add(int, Object) add(int, E)} is overridden.
      */
     // 将元素e追加到当前线性表中
+    // add末尾，append 末尾
     public boolean add(E e) {
         add(size(), e);
         return true;
@@ -187,6 +196,7 @@ public abstract class AbstractList<E> extends AbstractCollection<E> implements L
      * {@link #add(int, Object) add(int, E)} is overridden.
      */
     // 将指定容器中的元素添加到当前线性表的index处
+    // 子类实现可能覆盖本方法，以提高效率
     public boolean addAll(int index, Collection<? extends E> c) {
         rangeCheckForAdd(index);
         boolean modified = false;
@@ -323,7 +333,7 @@ public abstract class AbstractList<E> extends AbstractCollection<E> implements L
         ListIterator<E> it = listIterator();
         if(o == null) {
             while(it.hasNext())
-                if(it.next() == null)
+                if(it.next() == null) // ptr已经到了下一个位置，返回时需要返回prev指针
                     return it.previousIndex();
         } else {
             while(it.hasNext())
@@ -402,6 +412,9 @@ public abstract class AbstractList<E> extends AbstractCollection<E> implements L
      * {@code ConcurrentModificationException} if it is not.
      */
     // 返回[fromIndex, toIndex)之间的元素的视图
+    // 返回的是一个AbstractList中的SubList类型，set(i,e),get(i),add(i,e),remove(i),addAll(i,c),removeRange(start,end)都是委托给外部的方法
+    // listIterator(int) 返回的是对backList的包装对象
+    // modCount校验 -> CME
     public List<E> subList(int fromIndex, int toIndex) {
         subListRangeCheck(fromIndex, toIndex, size());
         return this instanceof RandomAccess
@@ -567,10 +580,12 @@ public abstract class AbstractList<E> extends AbstractCollection<E> implements L
     
     
     // 迭代器，用来遍历当前线性表
+    // 内部类，可以获取对应back实例的信息
     private class Itr implements Iterator<E> {
         /**
          * Index of element to be returned by subsequent call to next.
          */
+        // 该索引表示在后续调用 next() 方法时将要返回的元素的位置。
         int cursor = 0;
         
         /**
@@ -578,6 +593,7 @@ public abstract class AbstractList<E> extends AbstractCollection<E> implements L
          * previous.  Reset to -1 if this element is deleted by a call
          * to remove.
          */
+        // 该索引表示由最近一次调用 next() 或 previous() 方法返回的元素的位置。该索引用于记录最近一次返回的元素的位置，以便后续操作（如 remove()）能够知道要操作的具体元素。
         int lastRet = -1;
         
         /**
@@ -585,19 +601,20 @@ public abstract class AbstractList<E> extends AbstractCollection<E> implements L
          * List should have.  If this expectation is violated, the iterator
          * has detected concurrent modification.
          */
-        int expectedModCount = modCount;
+        // 如果backList被修改了，那么CME异常
+        int expectedModCount = modCount; // modCount是back-List中的实例变量
         
         public boolean hasNext() {
             return cursor != size();
         }
         
         public E next() {
-            checkForComodification();
+            checkForComodification(); // assert expected == modCount
             try {
                 int i = cursor;
-                E next = get(i);
-                lastRet = i;
-                cursor = i + 1;
+                E next = get(i); // back-list.get(), 
+                lastRet = i; // 最近一次访问的元素的位置
+                cursor = i + 1; // 下一次要访问的位置
                 return next;
             } catch(IndexOutOfBoundsException e) {
                 checkForComodification();
@@ -606,19 +623,19 @@ public abstract class AbstractList<E> extends AbstractCollection<E> implements L
         }
         
         public void remove() {
-            if(lastRet<0) {
+            if(lastRet<0) { // 如果 lastRet 小于 0，表示没有通过 next() 或 previous() 访问过任何元素，此时调用 remove() 是非法的，因此抛出 IllegalStateException。
                 throw new IllegalStateException();
             }
             
             checkForComodification();
             
             try {
-                AbstractList.this.remove(lastRet);
-                if(lastRet<cursor) {
+                AbstractList.this.remove(lastRet); // 委托back list 删除指定 上一次访问的元素的位置, lastRet 是由最近一次调用 next() 或 previous() 返回的元素的位置。
+                if(lastRet<cursor) { // 如果删除的元素在当前游标之前，则将游标向前移动一位，以保持游标的正确性。
                     cursor--;
                 }
-                lastRet = -1;
-                expectedModCount = modCount;
+                lastRet = -1; // 将 lastRet 重置为 -1，表示已经删除了最近访问的元素，防止重复删除。
+                expectedModCount = modCount; // 更新expect, 更新 expectedModCount 为当前的 modCount，以反映列表的最新修改状态。
             } catch(IndexOutOfBoundsException e) {
                 throw new ConcurrentModificationException();
             }
@@ -631,9 +648,10 @@ public abstract class AbstractList<E> extends AbstractCollection<E> implements L
         }
     }
     
+    // Itr的基础上，增加了前向迭代的能力
     private class ListItr extends Itr implements ListIterator<E> {
         ListItr(int index) {
-            cursor = index;
+            cursor = index; // 游标初始化为 index 
         }
         
         public boolean hasPrevious() {
@@ -643,9 +661,9 @@ public abstract class AbstractList<E> extends AbstractCollection<E> implements L
         public E previous() {
             checkForComodification();
             try {
-                int i = cursor - 1;
+                int i = cursor - 1; // 计算当前游标位置的前一个索引 i，即 cursor - 1
                 E previous = get(i);
-                lastRet = cursor = i;
+                lastRet = cursor = i; // 将 cursor 和 lastRet 都设置为 i，表示当前迭代器指向的元素是刚刚获取的前一个元素。lastRet 用于记录最近一次通过 next() 或 previous() 返回的元素位置，以便后续调用 remove() 时使用。
                 return previous;
             } catch(IndexOutOfBoundsException e) {
                 checkForComodification();

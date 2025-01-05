@@ -58,6 +58,12 @@ package java.util;
  * @since 1.2
  */
 // 一元容器的抽象实现
+/**
+ * AbstractCollection基本上就是依赖iterator和size两个方法实现的抽象容器
+ * 1. 实现不可变collection，extends AbstractCollection 并且 实现 iterator()方法和size()方法，iterator()方法
+ *    返回的迭代器要实现 hasNext()和next()方法
+ * 2. 实现可变collection，extends AbstractCollection 并且 额外实现 add()方法，iterator()方法要额外实现remove()方法
+ */
 public abstract class AbstractCollection<E> implements Collection<E> {
     
     /**
@@ -66,6 +72,7 @@ public abstract class AbstractCollection<E> implements Collection<E> {
      * Attempts to allocate larger arrays may result in
      * OutOfMemoryError: Requested array size exceeds VM limit
      */
+    // 最大大小 （Max - 8）
     private static final int MAX_ARRAY_SIZE = Integer.MAX_VALUE - 8;
     
     
@@ -118,6 +125,7 @@ public abstract class AbstractCollection<E> implements Collection<E> {
      * @see #add(Object)
      */
     // 将指定容器中的元素添加到当前容器中
+    // 添加成功，则修改成功
     public boolean addAll(Collection<? extends E> c) {
         boolean modified = false;
         
@@ -152,6 +160,7 @@ public abstract class AbstractCollection<E> implements Collection<E> {
      * method and this collection contains the specified object.
      */
     // 移除指定的元素，返回值指示是否移除成功
+    // 通过迭代器实现，== null 和 not null需要分别处理，true代表移除了目标元素
     public boolean remove(Object o) {
         Iterator<E> it = iterator();
         if(o == null) {
@@ -192,8 +201,9 @@ public abstract class AbstractCollection<E> implements Collection<E> {
      * @see #contains(Object)
      */
     // (匹配则移除)移除当前容器中所有与给定容器中的元素匹配的元素
+    // a-b，依赖iter实现，如果移除成功过，返回true
     public boolean removeAll(Collection<?> c) {
-        Objects.requireNonNull(c);
+        Objects.requireNonNull(c); // throw NPE if c is null
         boolean modified = false;
         Iterator<?> it = iterator();
         while(it.hasNext()) {
@@ -225,6 +235,7 @@ public abstract class AbstractCollection<E> implements Collection<E> {
      * @see #contains(Object)
      */
     // (不匹配则移除)移除当前容器中所有与给定容器中的元素不匹配的元素
+    // a&b, 依赖iter实现，如果移除成功过，返回true
     public boolean retainAll(Collection<?> c) {
         Objects.requireNonNull(c);
         boolean modified = false;
@@ -253,6 +264,7 @@ public abstract class AbstractCollection<E> implements Collection<E> {
      * {@code remove} method and this collection is non-empty.
      */
     // 清空当前容器中所有元素
+    // 依赖iter实现
     public void clear() {
         Iterator<E> it = iterator();
         while(it.hasNext()) {
@@ -276,6 +288,7 @@ public abstract class AbstractCollection<E> implements Collection<E> {
      * checking each element in turn for equality with the specified element.
      */
     // 判断当前容器中是否包含元素o
+    // 和remove类似，需要分为null何非null分别处理
     public boolean contains(Object o) {
         Iterator<E> it = iterator();
         if(o == null) {
@@ -307,6 +320,7 @@ public abstract class AbstractCollection<E> implements Collection<E> {
      * @see #contains(Object)
      */
     // 判读指定容器中的元素是否都包含在当前容器中
+    // 任一不包含，返回false
     public boolean containsAll(Collection<?> c) {
         for(Object e : c) {
             if(!contains(e)) {
@@ -353,7 +367,7 @@ public abstract class AbstractCollection<E> implements Collection<E> {
         for(int i = 0; i<r.length; i++) {
             if(!it.hasNext()) {
                 // fewer elements than expected
-                return Arrays.copyOf(r, i);
+                return Arrays.copyOf(r, i); // 没有size个元素，copy已有的元素
             }
             r[i] = it.next();
         }
@@ -388,6 +402,7 @@ public abstract class AbstractCollection<E> implements Collection<E> {
      * }</pre>
      */
     // 将当前顺序表中的元素存入数组a后返回，需要将链表中的元素转换为T类型
+    // 如果传入数组size < 当前list.size(), 那么利用 Array.newInstance() 创建一个新数组，再进行元素复制 （迭代器可能返回更多的元素）
     @SuppressWarnings("unchecked")
     public <T> T[] toArray(T[] a) {
         // Estimate size of array; be prepared to see more or fewer elements
@@ -466,6 +481,7 @@ public abstract class AbstractCollection<E> implements Collection<E> {
      * @return array containing the elements in the given array, plus any
      * further elements returned by the iterator, trimmed to size
      */
+    // 
     @SuppressWarnings("unchecked")
     private static <T> T[] finishToArray(T[] r, Iterator<?> it) {
         int i = r.length;
@@ -473,7 +489,7 @@ public abstract class AbstractCollection<E> implements Collection<E> {
         while(it.hasNext()) {
             int cap = r.length;
             if(i == cap) {
-                int newCap = cap + (cap >> 1) + 1;
+                int newCap = cap + (cap >> 1) + 1; // 1.5N + 1
                 // overflow-conscious code
                 if(newCap - MAX_ARRAY_SIZE>0) {
                     newCap = hugeCapacity(cap + 1);
